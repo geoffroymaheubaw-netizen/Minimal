@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/curfew-cron",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

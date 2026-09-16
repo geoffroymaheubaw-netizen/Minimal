@@ -1,0 +1,6 @@
+{
+  "name": "Minimal Launcher",
+  "description": "Un lanceur minimaliste pour téléphone conçu pour réduire le temps d'écran, avec accès direct à ZenTube, rappels de déconnexion programmables et répétés, et suivi des jours de sobriété numérique.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
