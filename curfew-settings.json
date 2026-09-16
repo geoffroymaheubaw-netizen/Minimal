@@ -4,15 +4,26 @@
   "weekdayTime": "17:10",
   "weekendTime": "19:40",
   "scheduleMode": "custom_days",
-  "days": [1, 2, 3, 5, 6, 0],
+  "days": [
+    1,
+    2,
+    3,
+    5,
+    6,
+    0
+  ],
   "repeatIntervalMinutes": 5,
   "customMessage": "Il est l'heure de lâcher votre téléphone. Offrez à vos yeux et votre esprit un repos bien mérité.",
   "timezoneOffset": 240,
   "timeZone": "America/Montreal",
   "userConfirmedNightCycle": null,
-  "lastPushTimestamp": 0,
-  "lastPushCycle": "",
+  "lastPushTimestamp": 1789600636385,
+  "lastPushCycle": "2026-09-16",
   "dayTimes": {
+    "0": {
+      "enabled": true,
+      "time": "19:40"
+    },
     "1": {
       "enabled": true,
       "time": "17:10"
@@ -34,10 +45,6 @@
       "time": "17:10"
     },
     "6": {
-      "enabled": true,
-      "time": "19:40"
-    },
-    "0": {
       "enabled": true,
       "time": "19:40"
     }

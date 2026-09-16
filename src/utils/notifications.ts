@@ -836,17 +836,41 @@ export async function triggerAutonomousCronCheck(
   force: boolean = false
 ): Promise<{ success: boolean; data?: any; message?: string }> {
   try {
-    const res = await fetch(`/api/curfew-cron${force ? '?force=true' : ''}`);
-    const data = await res.json();
+    const res = await fetch(`/api/curfew-cron${force ? '?force=true' : ''}`, {
+      headers: { Accept: 'application/json' },
+    });
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: `Réponse serveur non reconnue (${res.status}). Vérifiez que le serveur est démarré.`,
+      };
+    }
+
+    if (!res.ok || data?.success === false) {
+      return {
+        success: false,
+        data,
+        message: data?.error || data?.message || `Erreur d'exécution (${res.status})`,
+      };
+    }
+
     return {
-      success: data.success ?? true,
+      success: true,
       data,
-      message: data.message || (data.delivered ? 'Alerte transmise avec succès' : 'Vérification effectuée'),
+      message:
+        data.message ||
+        (data.delivered
+          ? 'Notification Telegram envoyée avec succès sur votre téléphone !'
+          : 'Vérification effectuée avec succès.'),
     };
   } catch (err: any) {
     return {
       success: false,
-      message: err?.message || 'Impossible de joindre /api/curfew-cron',
+      message: err?.message ? `Erreur réseau : ${err.message}` : 'Impossible de joindre le serveur',
     };
   }
 }

@@ -13,6 +13,7 @@ import {
   removeBotToken,
   addOrUpdateSubscriber,
 } from './server/telegram.js';
+import curfewCronHandler from './api/curfew-cron.js';
 
 const PORT = 3000;
 const HOST = '0.0.0.0';
@@ -598,6 +599,19 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message || 'Erreur setWebhook' });
     }
   });
+
+  // Autonomous Cron endpoint (accessible for cron-job.org, Cloud tasks, and manual testing)
+  const cronHandler = async (req: express.Request, res: express.Response) => {
+    try {
+      await curfewCronHandler(req, res);
+    } catch (err: any) {
+      console.error('[Curfew Cron Route Error]', err);
+      res.status(500).json({ success: false, error: err?.message || 'Erreur exécution cron' });
+    }
+  };
+
+  app.all('/api/curfew-cron', cronHandler);
+  app.all('/api/curfew-cron.ts', cronHandler);
 
   // Health route
   app.get('/api/health', (_req, res) => {
