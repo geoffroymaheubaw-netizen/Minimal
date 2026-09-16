@@ -37,21 +37,21 @@ export function getDefaultPreferences(): UserPreferences {
     targetDailyScreenTimeHours: 2,
     disconnectReminder: {
       enabled: true,
-      time: '21:30',
-      days: [1, 2, 3, 4, 5, 6, 0], // Every day by default (Lun à Dim)
-      scheduleMode: 'weekdays_weekend',
-      weekdayTime: '21:30',
-      weekendTime: '23:00',
+      time: '17:10',
+      days: [1, 2, 3, 5, 6, 0], // Lun, Mar, Mer, Ven, Sam, Dim (Jeudi exclu)
+      scheduleMode: 'custom_days',
+      weekdayTime: '17:10',
+      weekendTime: '19:40',
       dayTimes: {
-        1: { enabled: true, time: '21:30' }, // Lundi
-        2: { enabled: true, time: '21:30' }, // Mardi
-        3: { enabled: true, time: '21:30' }, // Mercredi
-        4: { enabled: true, time: '21:30' }, // Jeudi
-        5: { enabled: true, time: '22:30' }, // Vendredi (un peu plus tard)
-        6: { enabled: true, time: '23:00' }, // Samedi
-        0: { enabled: true, time: '22:00' }, // Dimanche
+        1: { enabled: true, time: '17:10' }, // Lundi
+        2: { enabled: true, time: '17:10' }, // Mardi
+        3: { enabled: true, time: '17:10' }, // Mercredi
+        4: { enabled: false, time: '17:10' }, // Jeudi (Désactivé)
+        5: { enabled: true, time: '17:10' }, // Vendredi
+        6: { enabled: true, time: '19:40' }, // Samedi
+        0: { enabled: true, time: '19:40' }, // Dimanche
       },
-      repeatIntervalMinutes: 30,
+      repeatIntervalMinutes: 5,
       customMessage: "Il est l'heure de lâcher votre téléphone. Offrez à vos yeux et votre esprit un repos bien mérité.",
       soundAlert: true,
       vibrateAlert: true,

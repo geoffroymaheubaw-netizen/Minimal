@@ -39,17 +39,26 @@ export interface CurfewSettings {
 const CURFEW_FILE = path.join(process.cwd(), 'curfew-settings.json');
 let globalCurfewSettings: CurfewSettings = {
   enabled: true,
-  time: '21:30',
-  weekdayTime: '21:30',
-  weekendTime: '23:00',
-  scheduleMode: 'weekdays_weekend',
-  days: [1, 2, 3, 4, 5, 6, 0],
-  repeatIntervalMinutes: 10,
-  customMessage: "Il est l'heure de déconnecter et de reposer votre esprit.",
-  timezoneOffset: -120, // Default to Europe/Paris (UTC+2 in summer, UTC+1 in winter)
+  time: '17:10',
+  weekdayTime: '17:10',
+  weekendTime: '19:40',
+  scheduleMode: 'custom_days',
+  days: [1, 2, 3, 5, 6, 0], // Lun, Mar, Mer, Ven, Sam, Dim (Jeudi exclu)
+  repeatIntervalMinutes: 5,
+  customMessage: "Il est l'heure de lâcher votre téléphone et de reposer votre esprit.",
+  timezoneOffset: 240, // Default to America/Montreal (UTC-4 EDT)
   userConfirmedNightCycle: null,
   lastPushTimestamp: 0,
   lastPushCycle: '',
+  dayTimes: {
+    1: { enabled: true, time: '17:10' }, // Lundi
+    2: { enabled: true, time: '17:10' }, // Mardi
+    3: { enabled: true, time: '17:10' }, // Mercredi
+    4: { enabled: false, time: '17:10' }, // Jeudi (Désactivé)
+    5: { enabled: true, time: '17:10' }, // Vendredi
+    6: { enabled: true, time: '19:40' }, // Samedi
+    0: { enabled: true, time: '19:40' }, // Dimanche
+  },
 };
 
 function loadCurfewSettings() {
@@ -249,18 +258,18 @@ export async function evaluateAndSendCurfewAlerts(now: Date = new Date()): Promi
   if (!hasTriggeredInCycle) {
     shouldSendTelegram = true;
     tgText =
-      `🌙 <b>Il est l'heure de déconnecter</b>\n\n` +
-      (globalCurfewSettings.customMessage || "Il est l'heure de lâcher votre téléphone et de reposer votre esprit.") +
-      (minutesElapsed > 0 ? `\n\n<i>Couvre-feu dépassé de ${minutesElapsed} min.</i>` : '') +
-      `\n\nAppuyez sur le bouton ci-dessous lorsque vous posez votre téléphone :`;
+      `🌙 <b>Il est l'heure de lâcher votre téléphone !</b>\n\n` +
+      (globalCurfewSettings.customMessage || "Prenez ce temps pour vous déconnecter et reposer votre esprit.") +
+      (minutesElapsed > 0 ? `\n\n<i>Couvre-feu actif depuis ${minutesElapsed} min.</i>` : '') +
+      `\n\n<i>⚠️ Ce rappel sonnera toutes les ${intervalMinutes} minutes jusqu'à ce que vous confirmiez ci-dessous :</i>`;
   } else {
     const elapsed = Date.now() - (globalCurfewSettings.lastPushTimestamp || 0);
     if (elapsed >= intervalMs) {
       shouldSendTelegram = true;
       tgText =
-        `🌙 <b>Rappel de déconnexion (+${minutesElapsed}m)</b>\n\n` +
-        `Votre écran est toujours allumé. Posez votre téléphone pour une nuit réparatrice !\n\n` +
-        `Appuyez sur le bouton ci-dessous pour couper les rappels cette nuit :`;
+        `🌙 <b>Rappel (+${minutesElapsed}m) : Lâchez votre téléphone !</b>\n\n` +
+        `Votre écran est toujours sollicité. Posez votre appareil pour reposer vos yeux et votre esprit !\n\n` +
+        `<i>⚠️ Rappel toutes les ${intervalMinutes} minutes tant que vous n'avez pas confirmé ci-dessous :</i>`;
     }
   }
 
@@ -515,6 +524,79 @@ async function startServer() {
   app.delete('/api/telegram/token', (_req, res) => {
     const success = removeBotToken();
     res.json({ success, configured: false });
+  });
+
+  // 7. Telegram Webhook handler
+  const webhookHandler = async (req: express.Request, res: express.Response) => {
+    try {
+      const update = req.body;
+      if (!update) return res.status(200).json({ ok: true });
+
+      const now = new Date();
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // Handle Callback Queries (Button click)
+      if (update.callback_query) {
+        const cb = update.callback_query;
+        const dataStr = String(cb.data || '');
+        const chatId = String(cb.message?.chat?.id || cb.from?.id);
+
+        if (dataStr.startsWith('curfew_stop')) {
+          const cycleKey = dataStr.split(':')[1] || todayKey;
+          globalCurfewSettings.userConfirmedNightCycle = cycleKey;
+          saveCurfewSettings();
+
+          await sendTelegramMessage(
+            chatId,
+            `✨ <b>Bravo ! Téléphone lâché.</b>\n\nDéconnexion confirmée. Les rappels toutes les 5 minutes sont arrêtés pour ce soir. Bonne soirée / bonne nuit ! 🛌`
+          );
+          return res.status(200).json({ ok: true, action: 'confirmed', cycleKey });
+        }
+      }
+
+      // Handle Text message stop keywords
+      if (update.message?.text) {
+        const text = update.message.text.trim().toLowerCase();
+        const chatId = String(update.message.chat.id);
+        const stopKeywords = ['stop', 'ok', 'lâché', 'lache', 'fait', 'bonne nuit', 'arrête', 'arrete', '/stop'];
+        if (stopKeywords.some((k) => text === k || text.includes(k))) {
+          globalCurfewSettings.userConfirmedNightCycle = todayKey;
+          saveCurfewSettings();
+
+          await sendTelegramMessage(
+            chatId,
+            `✅ <b>Téléphone lâché noté !</b> Rappels suspendus pour ce soir. Reposez-vous bien ! 🌙`
+          );
+        }
+      }
+
+      res.status(200).json({ ok: true });
+    } catch (err: any) {
+      console.warn('[Telegram Webhook Error]', err);
+      res.status(200).json({ ok: true });
+    }
+  };
+
+  app.post('/api/telegram/webhook', webhookHandler);
+  app.post('/api/telegram-webhook', webhookHandler);
+
+  // Endpoint to register webhook on Telegram API
+  app.post('/api/telegram/set-webhook', async (req, res) => {
+    try {
+      const { webhookUrl } = req.body;
+      if (!webhookUrl) {
+        return res.status(400).json({ success: false, error: 'URL du webhook requise' });
+      }
+      const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+      if (!token) {
+        return res.status(400).json({ success: false, error: 'Token bot non configuré' });
+      }
+      const tgRes = await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
+      const tgData = await tgRes.json();
+      res.json({ success: tgData.ok, result: tgData });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err?.message || 'Erreur setWebhook' });
+    }
   });
 
   // Health route

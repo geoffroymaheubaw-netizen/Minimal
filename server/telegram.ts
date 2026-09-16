@@ -246,7 +246,7 @@ export async function sendTelegramMessage(
       inline_keyboard: [
         [
           {
-            text: "✅ J'arrête mon téléphone",
+            text: "✅ J'ai lâché mon téléphone",
             callback_data: `curfew_stop:${options.cycleKey || ''}`,
           },
         ],
@@ -353,6 +353,18 @@ export async function pollTelegramUpdates(
               chatId,
               `🌙 <b>Minimal Launcher</b>\n\nVotre bot est opérationnel. Vos rappels de déconnexion programmés vous seront envoyés ici.`
             );
+          } else {
+            const lower = text.toLowerCase();
+            const stopKeywords = ['stop', 'ok', 'lâché', 'lache', 'fait', 'bonne nuit', 'arrête', 'arrete'];
+            if (stopKeywords.some((k) => lower === k || lower.includes(k))) {
+              await sendTelegramMessage(
+                chatId,
+                `✨ <b>Téléphone lâché noté !</b> Vos rappels de déconnexion sont suspendus pour la nuit. Reposez-vous bien ! 🌙`
+              );
+              if (onCurfewStopConfirmed) {
+                onCurfewStopConfirmed();
+              }
+            }
           }
         }
 
@@ -364,11 +376,27 @@ export async function pollTelegramUpdates(
 
           if (dataStr.startsWith('curfew_stop')) {
             const cycleKey = dataStr.split(':')[1] || undefined;
-            await answerCallbackQuery(cb.id, "Bonne nuit ! Vos rappels sont suspendus. 🌙");
+            await answerCallbackQuery(cb.id, "Bravo ! Déconnexion confirmée 🌙");
+
+            // Edit message to remove button and indicate confirmation
+            if (cb.message?.message_id) {
+              try {
+                await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: chatId,
+                    message_id: cb.message.message_id,
+                    text: `✅ <b>Téléphone lâché !</b>\nDéconnexion confirmée. Les rappels de 5 min sont arrêtés pour ce soir. Bonne nuit ! 🛌`,
+                    parse_mode: 'HTML',
+                  }),
+                });
+              } catch {}
+            }
 
             await sendTelegramMessage(
               chatId,
-              `✨ <b>Déconnexion enregistrée !</b>\n\nBravo pour ce pas vers votre sobriété numérique. Vos rappels sont coupés pour le reste de la nuit. Reposez-vous bien ! 🛌`
+              `✨ <b>Bravo pour ce choix !</b>\n\nVotre confirmation a bien été prise en compte. Vos rappels toutes les 5 minutes sont désactivés jusqu'à la prochaine plage programmée. Reposez-vous bien ! 🛌`
             );
 
             if (onCurfewStopConfirmed) {

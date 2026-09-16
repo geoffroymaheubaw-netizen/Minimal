@@ -47,6 +47,7 @@ import {
   saveTelegramToken,
   deleteTelegramToken,
   addManualTelegramSubscriber,
+  triggerAutonomousCronCheck,
   TelegramStatus,
 } from '../utils/notifications';
 
@@ -70,17 +71,18 @@ export const DisconnectReminderModal: React.FC<DisconnectReminderModalProps> = (
   // Ensure default fallback structure
   const getNormalizedSettings = (s: DisconnectReminderSettings): DisconnectReminderSettings => ({
     ...s,
-    scheduleMode: s.scheduleMode || 'weekdays_weekend',
-    weekdayTime: s.weekdayTime || '21:30',
-    weekendTime: s.weekendTime || '23:00',
+    scheduleMode: s.scheduleMode || 'custom_days',
+    weekdayTime: s.weekdayTime || '17:10',
+    weekendTime: s.weekendTime || '19:40',
+    repeatIntervalMinutes: typeof s.repeatIntervalMinutes === 'number' ? s.repeatIntervalMinutes : 5,
     dayTimes: s.dayTimes || {
-      1: { enabled: true, time: '21:30' },
-      2: { enabled: true, time: '21:30' },
-      3: { enabled: true, time: '21:30' },
-      4: { enabled: true, time: '21:30' },
-      5: { enabled: true, time: '22:30' },
-      6: { enabled: true, time: '23:00' },
-      0: { enabled: true, time: '22:00' },
+      1: { enabled: true, time: '17:10' },
+      2: { enabled: true, time: '17:10' },
+      3: { enabled: true, time: '17:10' },
+      4: { enabled: false, time: '17:10' }, // Jeudi désactivé
+      5: { enabled: true, time: '17:10' },
+      6: { enabled: true, time: '19:40' },
+      0: { enabled: true, time: '19:40' },
     },
   });
 
@@ -96,6 +98,7 @@ export const DisconnectReminderModal: React.FC<DisconnectReminderModalProps> = (
   const [telegramStatus, setTelegramStatus] = useState<TelegramStatus | null>(null);
   const [isSyncingTelegram, setIsSyncingTelegram] = useState<boolean>(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
+  const [isTestingCron, setIsTestingCron] = useState<boolean>(false);
   const [telegramFeedback, setTelegramFeedback] = useState<string | null>(null);
 
   // Bot token direct input state
@@ -224,6 +227,26 @@ export const DisconnectReminderModal: React.FC<DisconnectReminderModalProps> = (
       setTelegramFeedback(
         `Test programmé dans ${delaySeconds}s ! Verrouillez votre écran ou fermez le navigateur maintenant pour voir le bot sonner.`
       );
+    }
+  };
+
+  const handleTriggerAutonomousCron = async () => {
+    playMinimalClick(soundEnabled);
+    setIsTestingCron(true);
+    setTelegramFeedback(null);
+    try {
+      const res = await triggerAutonomousCronCheck(true);
+      if (res.success) {
+        setTelegramFeedback(
+          res.message || 'Exécution du robot autonome réussie ! Message envoyé sur votre Telegram.'
+        );
+      } else {
+        setTelegramFeedback(res.message || 'Erreur lors de l’exécution du robot.');
+      }
+    } catch (err: any) {
+      setTelegramFeedback(err?.message || 'Erreur d’appel');
+    } finally {
+      setIsTestingCron(false);
     }
   };
 
@@ -870,6 +893,32 @@ export const DisconnectReminderModal: React.FC<DisconnectReminderModalProps> = (
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 pt-1">
+                  {/* Schedule summary box */}
+                  <div className="p-2.5 rounded-xl bg-neutral-950/60 border border-neutral-800 text-[11px] flex flex-col gap-1 text-neutral-300">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                      Horaires autonomes du bot :
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span>• Lun, Mar, Mer, Ven :</span>
+                      <strong className="text-white font-mono">17h10</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-neutral-500">
+                      <span>• Jeudi :</span>
+                      <span className="text-neutral-400 italic">Désactivé (pause)</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>• Samedi & Dimanche :</span>
+                      <strong className="text-white font-mono">19h40</strong>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-neutral-800/60 text-amber-300/90">
+                      <span>• Répétition :</span>
+                      <strong className="font-mono">Toutes les 5 min</strong>
+                    </div>
+                    <div className="text-[10px] text-neutral-400 italic pt-0.5">
+                      Répète jusqu'à ce que vous cochiez avoir lâché le téléphone.
+                    </div>
+                  </div>
+
                   {/* Delayed test button: 10 seconds delay so user can lock screen! */}
                   <button
                     onClick={() => handleTestDelayedTelegram(10)}
@@ -889,15 +938,27 @@ export const DisconnectReminderModal: React.FC<DisconnectReminderModalProps> = (
                     </span>
                   </button>
 
-                  <button
-                    onClick={handleTestTelegramInstant}
-                    disabled={isTestingTelegram}
-                    id="btn-test-telegram-instant"
-                    className="w-full py-2 px-3 rounded-xl border border-neutral-800 hover:border-neutral-700 text-neutral-300 text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isTestingTelegram ? 'Envoi en cours...' : 'Envoyer un test immédiat'}</span>
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={handleTriggerAutonomousCron}
+                      disabled={isTestingCron}
+                      id="btn-test-curfew-cron"
+                      className="w-full py-2 px-3 rounded-xl bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-neutral-300 text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 text-amber-400 ${isTestingCron ? 'animate-spin' : ''}`} />
+                      <span>{isTestingCron ? 'Vérification...' : 'Tester le robot cloud (/cron)'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleTestTelegramInstant}
+                      disabled={isTestingTelegram}
+                      id="btn-test-telegram-instant"
+                      className="w-full py-2 px-3 rounded-xl border border-neutral-800 hover:border-neutral-700 text-neutral-300 text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isTestingTelegram ? 'Envoi...' : 'Envoyer test immédiat'}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

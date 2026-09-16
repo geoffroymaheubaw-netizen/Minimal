@@ -808,13 +808,13 @@ export async function sendTelegramCurfewAlertDirect(message: string): Promise<bo
           text:
             `🌙 <b>Il est l'heure de déconnecter</b>\n\n` +
             message +
-            `\n\nAppuyez sur le bouton ci-dessous lorsque vous posez votre téléphone :`,
+            `\n\n<i>⚠️ Ce rappel sonnera toutes les 5 minutes jusqu'à ce que vous appuyiez ci-dessous :</i>`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [
                 {
-                  text: "✅ J'arrête mon téléphone",
+                  text: "✅ J'ai lâché mon téléphone",
                   callback_data: 'curfew_stop',
                 },
               ],
@@ -826,6 +826,28 @@ export async function sendTelegramCurfewAlertDirect(message: string): Promise<bo
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Triggers the autonomous cron check (/api/curfew-cron)
+ */
+export async function triggerAutonomousCronCheck(
+  force: boolean = false
+): Promise<{ success: boolean; data?: any; message?: string }> {
+  try {
+    const res = await fetch(`/api/curfew-cron${force ? '?force=true' : ''}`);
+    const data = await res.json();
+    return {
+      success: data.success ?? true,
+      data,
+      message: data.message || (data.delivered ? 'Alerte transmise avec succès' : 'Vérification effectuée'),
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Impossible de joindre /api/curfew-cron',
+    };
   }
 }
 

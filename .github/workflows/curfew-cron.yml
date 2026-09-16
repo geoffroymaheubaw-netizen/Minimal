@@ -1,0 +1,23 @@
+name: Telegram Curfew Autonomous Cron
+
+on:
+  schedule:
+    # Runs every 5 minutes 24/7 (UTC)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check-curfew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Curfew Check & Telegram Notification
+        env:
+          APP_URL: ${{ secrets.VERCEL_APP_URL || secrets.APP_URL }}
+        run: |
+          if [ -n "$APP_URL" ]; then
+            TARGET_URL="${APP_URL%/}/api/curfew-cron"
+            echo "Pinging Curfew Cron at $TARGET_URL"
+            curl -s -f "$TARGET_URL" || echo "Ping completed with status $?"
+          else
+            echo "APP_URL not set in GitHub repository secrets. You can also use free cron-job.org."
+          fi
