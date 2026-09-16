@@ -59,6 +59,17 @@ export function getPrimaryDeepLink(app: AppLauncherItem): string | undefined {
     return 'https://zentube.app/';
   }
 
+  if (app.id === 'apple-mail') {
+    if (platform === 'ios') {
+      // Official Apple Mail app URI scheme on iPhone / iPad / Mac
+      return 'message://';
+    }
+    if (platform === 'android') {
+      return 'mailto:';
+    }
+    return 'message://';
+  }
+
   if (app.id === 'weather') {
     if (platform === 'ios') {
       // Official Apple Weather app scheme on iPhone / iPad
@@ -97,6 +108,10 @@ export function getAlternativeDeepLink(app: AppLauncherItem): string | undefined
       return 'weather://';
     }
     return 'https://meteofrance.com/';
+  }
+
+  if (app.id === 'apple-mail') {
+    return 'mailto:';
   }
 
   if (app.id === 'google-notebook') {

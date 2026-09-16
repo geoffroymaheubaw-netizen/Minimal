@@ -52,6 +52,16 @@ export const LAUNCHER_APPS: AppLauncherItem[] = [
     intentPrompt: 'Notez votre pensée puis revenez au monde réel.',
   },
   {
+    id: 'apple-mail',
+    name: 'Mail Apple',
+    category: 'Communication',
+    url: 'https://www.icloud.com/mail',
+    deepLink: 'message://',
+    iconName: 'apple-mail',
+    description: 'Application Mail iOS (ou version iCloud)',
+    intentPrompt: 'Traitez vos messages importants puis fermez votre boîte de réception.',
+  },
+  {
     id: 'zentube',
     name: 'ZenTube',
     category: 'Vidéo sans distraction',
