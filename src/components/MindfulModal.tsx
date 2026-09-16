@@ -53,15 +53,15 @@ export const MindfulModal: React.FC<MindfulModalProps> = ({
   const platform = getMobilePlatform();
 
   const primaryBtnLabel = isZenTube
-    ? 'Accéder à ZenTube'
+    ? "Ouvrir l'application ZenTube"
     : isCustom
     ? `Ouvrir l'application mobile (${app.name})`
     : `Accéder à ${app.name}`;
 
   const altBtnLabel = isZenTube
     ? platform === 'ios'
-      ? "Télécharger ZenTube (App Store)"
-      : "Voir ZenTube (Google Play)"
+      ? "Ouvrir via l'App Store (Bouton « Ouvrir »)"
+      : "Voir ZenTube (Google Play / APK)"
     : 'Essayer le lien direct alternatif';
 
   const handleOpenTarget = (deepLinkUrl?: string) => {
@@ -180,7 +180,22 @@ export const MindfulModal: React.FC<MindfulModalProps> = ({
                 </button>
               )}
 
-              {primaryDeepLink !== app.url && (
+              {isZenTube ? (
+                <button
+                  onClick={() => handleOpenTarget('https://zentube.app/')}
+                  id="btn-launch-zentube-site"
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    isLight
+                      ? 'border border-neutral-200 text-neutral-600 hover:bg-neutral-100'
+                      : isEink
+                      ? 'border border-neutral-400 text-neutral-800'
+                      : 'border border-neutral-800 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Consulter le site officiel zentube.app</span>
+                </button>
+              ) : primaryDeepLink !== app.url && (
                 <button
                   onClick={() => handleOpenTarget(undefined)}
                   id="btn-launch-web-link"

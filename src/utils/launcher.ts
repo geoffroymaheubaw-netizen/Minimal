@@ -54,9 +54,14 @@ export function getPrimaryDeepLink(app: AppLauncherItem): string | undefined {
   }
 
   if (app.id === 'zentube') {
-    // ZenTube is accessible directly at https://zentube.app/
-    // On iOS, navigating to https://zentube.app/ triggers native Universal Links if installed
-    return 'https://zentube.app/';
+    if (platform === 'ios') {
+      // Primary attempt: native custom URL scheme for ZenTube
+      return 'zentube://';
+    }
+    if (platform === 'android') {
+      return 'intent://#Intent;package=org.honged.ZenTube;end';
+    }
+    return 'zentube://';
   }
 
   if (app.id === 'apple-mail') {
@@ -93,13 +98,13 @@ export function getAlternativeDeepLink(app: AppLauncherItem): string | undefined
 
   if (app.id === 'zentube') {
     if (platform === 'ios') {
-      // Official App Store link for ZenTube Decluttered
-      return 'https://apps.apple.com/app/zentube-decluttered/id6447817424';
+      // Direct App Store URI which opens the App Store page with the direct "OUVRIR" (Open) button if installed
+      return 'itms-apps://apps.apple.com/app/id6480412927';
     }
     if (platform === 'android') {
       return 'https://play.google.com/store/apps/details?id=com.zentubeofficial.zentube';
     }
-    return 'https://zentube.app/';
+    return 'https://apps.apple.com/app/zentube-decluttered/id6480412927';
   }
 
   if (app.id === 'weather') {
@@ -147,6 +152,10 @@ export function getAlternativeDeepLink(app: AppLauncherItem): string | undefined
  */
 export function launchAppUrl(targetUrl: string, fallbackWebUrl?: string, isAppTarget: boolean = false): void {
   const isScheme = isCustomScheme(targetUrl);
+  const isStandalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as unknown as { standalone?: boolean })?.standalone === true);
 
   if (isScheme) {
     let hasNavigatedAway = false;
@@ -154,6 +163,7 @@ export function launchAppUrl(targetUrl: string, fallbackWebUrl?: string, isAppTa
       hasNavigatedAway = true;
     };
     window.addEventListener('pagehide', onPageHide, { once: true });
+    window.addEventListener('blur', onPageHide, { once: true });
 
     // 1. Attempt native scheme navigation
     try {
@@ -177,21 +187,32 @@ export function launchAppUrl(targetUrl: string, fallbackWebUrl?: string, isAppTa
     if (fallbackWebUrl && fallbackWebUrl !== targetUrl) {
       setTimeout(() => {
         window.removeEventListener('pagehide', onPageHide);
+        window.removeEventListener('blur', onPageHide);
         if (!hasNavigatedAway && typeof document !== 'undefined' && document.visibilityState === 'visible') {
           console.info('Native application not responding, redirecting to web version:', fallbackWebUrl);
-          try {
-            const win = window.open(fallbackWebUrl, '_blank', 'noopener,noreferrer');
-            if (!win || win.closed || typeof win.closed === 'undefined') {
+          if (isStandalone) {
+            window.location.href = fallbackWebUrl;
+          } else {
+            try {
+              const win = window.open(fallbackWebUrl, '_blank', 'noopener,noreferrer');
+              if (!win || win.closed || typeof win.closed === 'undefined') {
+                window.location.href = fallbackWebUrl;
+              }
+            } catch {
               window.location.href = fallbackWebUrl;
             }
-          } catch {
-            window.location.href = fallbackWebUrl;
           }
         }
-      }, 1800);
+      }, 2500);
     }
   } else {
-    // Standard web URL or Universal Link (e.g. https://zentube.app/, https://notebooklm.google.com/)
+    // In standalone PWA mode on iOS, window.open is blocked by WebKit
+    if (isStandalone) {
+      window.location.href = targetUrl;
+      return;
+    }
+
+    // Standard web URL or Universal Link
     let opened = false;
 
     // Try standard popup / new tab
