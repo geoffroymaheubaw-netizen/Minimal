@@ -66,8 +66,26 @@ function loadCurfewSettings() {
   try {
     if (fs.existsSync(CURFEW_FILE)) {
       const data = JSON.parse(fs.readFileSync(CURFEW_FILE, 'utf-8'));
-      globalCurfewSettings = { ...globalCurfewSettings, ...data };
-      console.log('[Curfew] Loaded global curfew settings from disk');
+      globalCurfewSettings = {
+        ...globalCurfewSettings,
+        ...data,
+        repeatIntervalMinutes: 5,
+        weekdayTime: '17:10',
+        weekendTime: '19:40',
+        dayTimes: {
+          ...globalCurfewSettings.dayTimes,
+          ...(data.dayTimes || {}),
+          1: { enabled: true, time: '17:10' },
+          2: { enabled: true, time: '17:10' },
+          3: { enabled: true, time: '17:10' },
+          4: { enabled: false, time: '17:10' },
+          5: { enabled: true, time: '17:10' },
+          6: { enabled: true, time: '19:40' },
+          0: { enabled: true, time: '19:40' },
+        },
+      };
+      saveCurfewSettings();
+      console.log('[Curfew] Loaded and aligned curfew settings with user requirement');
     }
   } catch (err) {
     console.warn('Could not read curfew-settings.json:', err);
@@ -382,17 +400,25 @@ async function startServer() {
   });
 
   // 3. Trigger / evaluate curfew manually or via Cron
-  const curfewCheckHandler = async (_req: express.Request, res: express.Response) => {
+  const curfewCronRouteHandler = async (req: express.Request, res: express.Response) => {
     try {
-      const result = await evaluateAndSendCurfewAlerts(new Date());
-      res.json({ success: true, result });
+      await curfewCronHandler(req, res);
     } catch (err: any) {
-      res.status(500).json({ success: false, error: err?.message || 'Erreur vérification couvre-feu' });
+      console.error('[Curfew Cron Error]', err);
+      try {
+        const result = await evaluateAndSendCurfewAlerts(new Date());
+        res.json({ success: true, result });
+      } catch (innerErr: any) {
+        res.status(500).json({ success: false, error: innerErr?.message || err?.message });
+      }
     }
   };
-  app.get('/api/curfew/check', curfewCheckHandler);
-  app.post('/api/curfew/check', curfewCheckHandler);
-  app.get('/api/curfew/cron', curfewCheckHandler);
+
+  app.all('/api/curfew-cron', curfewCronRouteHandler);
+  app.all('/api/curfew-cron.ts', curfewCronRouteHandler);
+  app.all('/api/curfew/cron', curfewCronRouteHandler);
+  app.all('/api/curfew/check', curfewCronRouteHandler);
+  app.all('/api/cron/curfew', curfewCronRouteHandler);
 
   // 4. Delayed Test: sends a Telegram notification after delaySeconds (e.g. 10s)
   // This allows the user to lock their screen or close the browser and verify receipt!
@@ -599,19 +625,6 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message || 'Erreur setWebhook' });
     }
   });
-
-  // Autonomous Cron endpoint (accessible for cron-job.org, Cloud tasks, and manual testing)
-  const cronHandler = async (req: express.Request, res: express.Response) => {
-    try {
-      await curfewCronHandler(req, res);
-    } catch (err: any) {
-      console.error('[Curfew Cron Route Error]', err);
-      res.status(500).json({ success: false, error: err?.message || 'Erreur exécution cron' });
-    }
-  };
-
-  app.all('/api/curfew-cron', cronHandler);
-  app.all('/api/curfew-cron.ts', cronHandler);
 
   // Health route
   app.get('/api/health', (_req, res) => {

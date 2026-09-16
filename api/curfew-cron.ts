@@ -273,7 +273,7 @@ export default async function handler(req: any, res: any) {
   }
 
   // 9. Check 5-Minute Repetition Interval
-  const intervalMinutes = Number(settings.repeatIntervalMinutes) || 5;
+  const intervalMinutes = 5;
   const intervalMs = intervalMinutes * 60 * 1000;
   const isSameCycle = state.lastPushCycle === cycleKey;
   const timeSinceLastPush = Date.now() - (state.lastPushTimestamp || 0);

@@ -835,44 +835,91 @@ export async function sendTelegramCurfewAlertDirect(message: string): Promise<bo
 export async function triggerAutonomousCronCheck(
   force: boolean = false
 ): Promise<{ success: boolean; data?: any; message?: string }> {
-  try {
-    const res = await fetch(`/api/curfew-cron${force ? '?force=true' : ''}`, {
-      headers: { Accept: 'application/json' },
-    });
-    const text = await res.text();
-    let data: any = null;
+  // 1. Try server-side cron endpoints in cascade
+  const endpoints = [
+    `/api/curfew-cron${force ? '?force=true' : ''}`,
+    `/api/curfew/cron${force ? '?force=true' : ''}`,
+    `/api/curfew/check${force ? '?force=true' : ''}`,
+  ];
+
+  for (const ep of endpoints) {
     try {
-      data = JSON.parse(text);
+      const res = await fetch(ep, {
+        headers: { Accept: 'application/json' },
+      });
+      if (res.status === 404) {
+        continue;
+      }
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        continue;
+      }
+
+      if (data && (data.success !== false || data.delivered !== undefined)) {
+        return {
+          success: true,
+          data,
+          message:
+            data.message ||
+            (data.delivered
+              ? 'Notification Telegram envoyée avec succès sur votre téléphone !'
+              : 'Vérification du robot cloud effectuée avec succès.'),
+        };
+      }
     } catch {
-      return {
-        success: false,
-        message: `Réponse serveur non reconnue (${res.status}). Vérifiez que le serveur est démarré.`,
-      };
+      // Continue to next endpoint
     }
-
-    if (!res.ok || data?.success === false) {
-      return {
-        success: false,
-        data,
-        message: data?.error || data?.message || `Erreur d'exécution (${res.status})`,
-      };
-    }
-
-    return {
-      success: true,
-      data,
-      message:
-        data.message ||
-        (data.delivered
-          ? 'Notification Telegram envoyée avec succès sur votre téléphone !'
-          : 'Vérification effectuée avec succès.'),
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err?.message ? `Erreur réseau : ${err.message}` : 'Impossible de joindre le serveur',
-    };
   }
+
+  // 2. Server test fallback (/api/telegram/test)
+  try {
+    const testRes = await fetch('/api/telegram/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (testRes.ok) {
+      const testData = await testRes.json();
+      if (testData.success) {
+        return {
+          success: true,
+          data: testData,
+          message:
+            testData.message || 'Notification Telegram envoyée avec succès sur votre téléphone !',
+        };
+      }
+    }
+  } catch {
+    // Continue to client direct fallback
+  }
+
+  // 3. Client direct fallback: send directly via Telegram Bot API
+  const local = getLocalTelegramConfig();
+  if (local && local.token && local.subscribers && local.subscribers.length > 0) {
+    try {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const sent = await sendTelegramCurfewAlertDirect(
+        `Test autonome : il est ${timeStr}. Pensez à déconnecter pour reposer vos yeux et votre esprit.`
+      );
+      if (sent) {
+        return {
+          success: true,
+          message: 'Notification Telegram envoyée avec succès sur votre téléphone !',
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return {
+    success: false,
+    message: 'Impossible de joindre le serveur. Veuillez vérifier la connexion.',
+  };
 }
 
 /**

@@ -1,23 +1,21 @@
 {
   "enabled": true,
-  "time": "17:10",
+  "time": "21:30",
   "weekdayTime": "17:10",
   "weekendTime": "19:40",
-  "scheduleMode": "custom_days",
+  "scheduleMode": "weekdays_weekend",
   "days": [
     1,
     2,
     3,
-    5,
-    6,
-    0
+    4,
+    5
   ],
   "repeatIntervalMinutes": 5,
-  "customMessage": "Il est l'heure de lâcher votre téléphone. Offrez à vos yeux et votre esprit un repos bien mérité.",
+  "customMessage": "Moins d'écran, plus de vie : déconnectez maintenant pour recharger votre propre énergie.",
   "timezoneOffset": 240,
-  "timeZone": "America/Montreal",
   "userConfirmedNightCycle": null,
-  "lastPushTimestamp": 1789600636385,
+  "lastPushTimestamp": 1789601025006,
   "lastPushCycle": "2026-09-16",
   "dayTimes": {
     "0": {
@@ -48,5 +46,6 @@
       "enabled": true,
       "time": "19:40"
     }
-  }
+  },
+  "timeZone": "America/Montreal"
 }
